@@ -18,27 +18,46 @@ BASE_DIR = Path(__file__).resolve().parent
 DATA_PATH = BASE_DIR / "data" / "tips.csv"
 OUTPUT_DIR = BASE_DIR / "output"
 
+DAY_NAMES = {
+    "Thur": "Thursday",
+    "Fri": "Friday",
+    "Sat": "Saturday",
+    "Sun": "Sunday",
+}
+
 
 def load_data() -> pd.DataFrame:
     """Load the tips dataset from the committed CSV."""
     return pd.read_csv(DATA_PATH)
 
 
-def chart_bill_distribution(df: pd.DataFrame) -> Path:
-    """Histogram of total bill amounts."""
-    fig, ax = plt.subplots(figsize=(8, 4.5))
-    ax.hist(df["total_bill"], bins=20, edgecolor="white", color="#4c72b0")
-    ax.set_title("Distribution of total bills")
-    ax.set_xlabel("Total bill (ZAR equivalent)")
-    ax.set_ylabel("Number of visits")
+def add_tip_percentage(df: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy of the dataframe with a tip_pct column."""
+    result = df.copy()
+    result["tip_pct"] = result["tip"] / result["total_bill"] * 100
+    return result
+
+
+def save_figure(fig, filename: str) -> Path:
+    """Layout, save and close a Matplotlib figure."""
+    path = OUTPUT_DIR / filename
     fig.tight_layout()
-    path = OUTPUT_DIR / "bill_distribution.png"
     fig.savefig(path, dpi=150)
     plt.close(fig)
     return path
 
 
-def chart_avg_tip_by_day(df: pd.DataFrame) -> Path:
+def chart_bill_distribution(df: pd.DataFrame) -> None:
+    """Histogram of total bill amounts."""
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    ax.hist(df["total_bill"], bins=20, edgecolor="white", color="#4c72b0")
+    ax.set_title("Distribution of total bills")
+    ax.set_xlabel("Total bill (USD)")
+    ax.set_ylabel("Number of visits")
+    save_figure(fig, "bill_distribution.png")
+
+
+def chart_avg_tip_by_day(df: pd.DataFrame) -> None:
     """Average tip per day of the week."""
     order = ["Thur", "Fri", "Sat", "Sun"]
     avg = df.groupby("day")["tip"].mean().reindex(order)
@@ -46,17 +65,13 @@ def chart_avg_tip_by_day(df: pd.DataFrame) -> Path:
     ax.bar(avg.index, avg.values, color="#55a868")
     ax.set_title("Average tip by day")
     ax.set_xlabel("Day")
-    ax.set_ylabel("Average tip")
+    ax.set_ylabel("Average tip (USD)")
     for i, value in enumerate(avg.values):
         ax.text(i, value + 0.05, f"{value:.2f}", ha="center", fontsize=9)
-    fig.tight_layout()
-    path = OUTPUT_DIR / "avg_tip_by_day.png"
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
-    return path
+    save_figure(fig, "avg_tip_by_day.png")
 
 
-def chart_bill_vs_tip(df: pd.DataFrame) -> Path:
+def chart_bill_vs_tip(df: pd.DataFrame) -> None:
     """Scatter of total bill vs tip, coloured by party size."""
     fig, ax = plt.subplots(figsize=(8, 4.5))
     scatter = ax.scatter(
@@ -68,55 +83,87 @@ def chart_bill_vs_tip(df: pd.DataFrame) -> Path:
         edgecolor="white",
     )
     ax.set_title("Total bill vs tip, by party size")
-    ax.set_xlabel("Total bill")
-    ax.set_ylabel("Tip")
+    ax.set_xlabel("Total bill (USD)")
+    ax.set_ylabel("Tip (USD)")
     fig.colorbar(scatter, ax=ax, label="Party size")
-    fig.tight_layout()
-    path = OUTPUT_DIR / "bill_vs_tip.png"
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
-    return path
+    save_figure(fig, "bill_vs_tip.png")
 
 
-def chart_tip_percentage_by_time(df: pd.DataFrame) -> Path:
+def chart_tip_percentage_by_time(df: pd.DataFrame) -> None:
     """Box plot of tip percentage by meal time."""
-    df = df.copy()
-    df["tip_pct"] = df["tip"] / df["total_bill"] * 100
     fig, ax = plt.subplots(figsize=(8, 4.5))
     df.boxplot(column="tip_pct", by="time", ax=ax, grid=False)
     ax.set_title("Tip percentage by meal time")
     ax.set_ylabel("Tip (%)")
     fig.suptitle("")
-    fig.tight_layout()
-    path = OUTPUT_DIR / "tip_pct_by_time.png"
-    fig.savefig(path, dpi=150)
-    plt.close(fig)
+    save_figure(fig, "tip_pct_by_time.png")
+
+
+def compute_findings(df: pd.DataFrame) -> dict:
+    """Return the key findings as a plain dictionary."""
+    by_time = df.groupby("time")["tip_pct"].mean().round(2)
+    return {
+        "visits": len(df),
+        "avg_bill": round(df["total_bill"].mean(), 2),
+        "avg_tip": round(df["tip"].mean(), 2),
+        "avg_tip_pct": round(df["tip_pct"].mean(), 1),
+        "busiest_day": df["day"].mode()[0],
+        "most_common_time": df["time"].mode()[0],
+        "dinner_tip_pct": by_time["Dinner"],
+        "lunch_tip_pct": by_time["Lunch"],
+    }
+
+
+def print_findings(findings: dict) -> None:
+    """Print the key findings to the console."""
+    print("=== Key findings ===")
+    print(f"Visits analysed: {findings['visits']}")
+    print(f"Average total bill: {findings['avg_bill']}")
+    print(f"Average tip: {findings['avg_tip']}")
+    print(f"Average tip percentage: {findings['avg_tip_pct']}%")
+    print(f"Most common day: {findings['busiest_day']}")
+    print(f"Most common meal time: {findings['most_common_time']}")
+
+
+def write_findings_md(findings: dict) -> Path:
+    """Write the findings to a markdown file used by the README."""
+    day_line = f"{DAY_NAMES[findings['busiest_day']]} is the busiest day"
+    time_line = (
+        "Lunch has a slightly higher average tip percentage than dinner"
+        if findings["lunch_tip_pct"] > findings["dinner_tip_pct"]
+        else "Dinner has a slightly higher average tip percentage than lunch"
+    )
+    lines = [
+        "# Generated findings",
+        "",
+        f"- Visits analysed: {findings['visits']}",
+        f"- Average total bill: ${findings['avg_bill']:.2f}",
+        f"- Average tip: ${findings['avg_tip']:.2f}",
+        f"- Average tip percentage: {findings['avg_tip_pct']}% of the total bill",
+        f"- {day_line}.",
+        f"- {time_line}.",
+        f"- Average tip percentage is {findings['lunch_tip_pct']}% at lunch and "
+        f"{findings['dinner_tip_pct']}% at dinner.",
+        "",
+        "This file is generated by `analysis.py`. Do not edit it by hand.",
+    ]
+    path = OUTPUT_DIR / "findings.md"
+    path.write_text("\n".join(lines), encoding="utf-8")
     return path
 
 
-def print_findings(df: pd.DataFrame) -> None:
-    """Print the key findings from the analysis."""
-    df = df.copy()
-    df["tip_pct"] = df["tip"] / df["total_bill"] * 100
-    print("=== Key findings ===")
-    print(f"Visits analysed: {len(df)}")
-    print(f"Average total bill: {df['total_bill'].mean():.2f}")
-    print(f"Average tip: {df['tip'].mean():.2f}")
-    print(f"Average tip percentage: {df['tip_pct'].mean():.1f}%")
-    print(f"Most common day: {df['day'].mode()[0]}")
-    print(f"Most common meal time: {df['time'].mode()[0]}")
-
-
 def main() -> None:
-    """Run the full analysis and save all charts."""
+    """Run the full analysis, generate charts and write the findings."""
     OUTPUT_DIR.mkdir(exist_ok=True)
-    df = load_data()
-    print_findings(df)
+    df = add_tip_percentage(load_data())
+    findings = compute_findings(df)
+    print_findings(findings)
     chart_bill_distribution(df)
     chart_avg_tip_by_day(df)
     chart_bill_vs_tip(df)
     chart_tip_percentage_by_time(df)
-    print(f"Charts saved to {OUTPUT_DIR}")
+    write_findings_md(findings)
+    print(f"Charts and findings saved to {OUTPUT_DIR}")
 
 
 if __name__ == "__main__":

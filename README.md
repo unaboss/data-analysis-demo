@@ -23,9 +23,12 @@ The script prints key findings and saves charts into `output/`.
 
 ## Sample findings
 
+The analysis script writes its findings to [`output/findings.md`](output/findings.md), so the
+numbers always match the code. At a glance:
+
 - Average tip percentage is around **16%** of the total bill.
-- **Saturday** and **Sunday** are the busiest days.
-- **Lunch** has a slightly higher average tip percentage than dinner.
+- Saturday and Sunday are the busiest days.
+- Lunch has a slightly higher average tip percentage than dinner.
 - Larger parties tend to spend more, and tips grow with the bill.
 
 ## Charts
@@ -36,6 +39,7 @@ The script prints key findings and saves charts into `output/`.
 | `output/avg_tip_by_day.png` | Average tip across the week |
 | `output/bill_vs_tip.png` | Tip vs bill, coloured by party size |
 | `output/tip_pct_by_time.png` | Tip percentage by meal time |
+| `output/findings.md` | Auto-generated findings summary |
 
 ## Status
 
