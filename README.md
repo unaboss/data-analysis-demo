@@ -43,4 +43,4 @@ numbers always match the code. At a glance:
 
 ## Status
 
-Portfolio project as part of my [learning roadmap](https://github.com/unaboss/unaboss). Comments, issues and pull requests are welcome.
+Portfolio project — part of my [data analytics work](https://github.com/unaboss). Comments, issues and pull requests are welcome.
